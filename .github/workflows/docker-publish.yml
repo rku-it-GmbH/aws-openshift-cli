@@ -93,8 +93,10 @@ jobs:
         id: image-versions
         run: |
           set -euo pipefail
-          aws_version=$(grep -m1 '^FROM public.ecr.aws/aws-cli/aws-cli:' Dockerfile | sed -E 's#^FROM [^:]+:([^[:space:]]+).*$#\1#')
-          oc_version=$(grep -m1 '^FROM quay.io/openshift/origin-cli:' Dockerfile | sed -E 's#^FROM [^:]+:([^[:space:]]+).*$#\1#')
+          aws_version=$(grep -m1 '^FROM .*aws-cli/aws-cli:' Dockerfile | sed -E 's#^FROM [^:]+:([^[:space:]]+).*$#\1#')
+          oc_version=$(grep -m1 '^FROM .*openshift/origin-cli:' Dockerfile | sed -E 's#^FROM [^:]+:([^[:space:]]+).*$#\1#')
+          test -n "${aws_version}"
+          test -n "${oc_version}"
           echo "aws_version=${aws_version}" >> "$GITHUB_OUTPUT"
           echo "oc_version=${oc_version}" >> "$GITHUB_OUTPUT"
 
@@ -110,7 +112,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=aws${{ steps.image-versions.outputs.aws_version }}-openshift${{ steps.image-versions.outputs.oc_version }},enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+            type=raw,value=aws${{ steps.image-versions.outputs.aws_version }}-openshift${{ steps.image-versions.outputs.oc_version }},enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.image-versions.outputs.aws_version != '' && steps.image-versions.outputs.oc_version != '' }}
 
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
