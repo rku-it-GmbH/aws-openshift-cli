@@ -1,4 +1,8 @@
-FROM bk203/aws-cli:latest
+FROM alpine:3.11
+
+RUN apk --no-cache --update add python py-pip groff less mailcap \
+    && pip install --upgrade awscli s3cmd python-magic \
+    && apk --purge -v del py-pip
 
 # Add glibc as required for OpenShift CLI (oc)
 RUN apk --no-cache add ca-certificates wget \
@@ -15,3 +19,7 @@ RUN apk --no-cache add openssl \
 	&& rm -rf openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit
 
 WORKDIR /tmp
+
+VOLUME /root/.aws
+VOLUME /project
+ENTRYPOINT ["aws"]
