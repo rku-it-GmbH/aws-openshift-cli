@@ -3,86 +3,134 @@
 [![Docker Image CI](https://github.com/rku-it-GmbH/aws-openshift-cli/actions/workflows/docker-image.yml/badge.svg)](https://github.com/rku-it-GmbH/aws-openshift-cli/actions/workflows/docker-image.yml)
 [![Docker Publish](https://github.com/rku-it-GmbH/aws-openshift-cli/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/rku-it-GmbH/aws-openshift-cli/actions/workflows/docker-publish.yml)
 
-Docker image combining the following tools:
+Container image with AWS CLI, kubectl, and OpenShift CLI (oc) for CI jobs and OpenShift automation.
 
-* AWS ClI
-* Kubernetes CLI (kubectl)
-* OpenShift CLI (oc)
+## Quickstart
 
-## CI/CD Workflows
-
-This repository uses two GitHub Actions workflows to build, test, and publish the Docker image.
-
-### docker-image.yml — Docker Image CI
-
-Triggers on every push to `main` and on pull requests targeting `main`.
-
-**Jobs:**
-- **build** – Builds the Docker image using Docker Buildx with GHA layer caching and runs the following tests against the built image:
-  - `aws --version` – verifies the AWS CLI is installed
-  - `kubectl version --client` – verifies kubectl is installed
-  - `oc version` – verifies the OpenShift CLI is installed
-
-The workflow fails if the image cannot be built or if any test command exits with a non-zero status, preventing a broken image from being published.
-
-### docker-publish.yml — Docker Publish
-
-Triggers on push to `main` and on semver tags (`v*.*.*`). Also runs (build-only, no push) on pull requests.
-
-**Jobs:**
-- **test** – Same build-and-test steps as `docker-image.yml`. The publish job does not start unless this job succeeds.
-- **build** – Builds the image with Docker Buildx, pushes it to [GitHub Container Registry (ghcr.io)](https://ghcr.io) using `GITHUB_TOKEN`, and signs the image with [cosign](https://github.com/sigstore/cosign) for supply-chain integrity. The image is **not** pushed on pull requests.
-
-#### Image tags
-
-`docker/metadata-action` generates the following tags automatically:
-
-| Event | Tags applied |
-|-------|-------------|
-| Push to `main` | `ghcr.io/<owner>/aws-openshift-cli:main`, `ghcr.io/<owner>/aws-openshift-cli:sha-<short-sha>` |
-| Tag `v1.2.3` | `ghcr.io/<owner>/aws-openshift-cli:1.2.3`, `ghcr.io/<owner>/aws-openshift-cli:1.2`, `ghcr.io/<owner>/aws-openshift-cli:1`, `ghcr.io/<owner>/aws-openshift-cli:latest` |
-| Pull request | Build only, no push |
-
-#### Required secrets
-
-| Secret | Description |
-|--------|-------------|
-| `GITHUB_TOKEN` | Automatically provided by GitHub Actions. Used to authenticate with `ghcr.io` and to sign the image with cosign. No manual configuration required. |
-
-#### Required repository permissions
-
-The workflows use `permissions: packages: write` to push packages to GHCR. This is granted automatically via `GITHUB_TOKEN` as long as Actions are enabled for the repository.
-
-#### Making the GHCR package public
-
-By default, packages published to GHCR inherit the repository visibility (private for private repos). To make the published image public:
-
-1. Navigate to the package page: `https://github.com/orgs/<owner>/packages` or `https://github.com/<owner>?tab=packages`.
-2. Click the published package (`aws-openshift-cli`).
-3. Click **Package settings** (bottom-right).
-4. Under **Danger Zone**, click **Change visibility** → select **Public** → confirm.
-
-Alternatively, set the default package visibility to public in the organisation settings under **Packages** → **Default package visibility**.
-
-## Usage within OpenShift
-
-On OpenShift we deploy a [CronJob](https://docs.openshift.com/container-platform/3.11/dev_guide/cron_jobs.html) that will be responsible for renewing the credentials stored within a secret.
-
-```
-# Grant privalliages to allow creation of secrets, admin is overpowered still researching
-oc policy add-role-to-user admin system:serviceaccount:{$PROJECT}:default
-
-# From GitHub
-oc create -f https://raw.githubusercontent.com/bk203/aws-openshift-cli/master/cron.yaml
-
-# From file
-oc create -f cron.yaml
+```bash
+docker pull ghcr.io/rku-it-gmbh/aws-openshift-cli:main
+docker run --rm ghcr.io/rku-it-gmbh/aws-openshift-cli:main --version
+docker run --rm --entrypoint kubectl ghcr.io/rku-it-gmbh/aws-openshift-cli:main version --client
 ```
 
-Next update the created ConfigMap containing your AWS credentials, and your done.
+## Table of contents
 
-The CronJob will run every [“At every minute past every 8th hour.”](https://crontab.guru/#*_*/8_*_*_*), to manually start the job you can run:
+- [Overview](#overview)
+- [Features](#features)
+- [Requirements and installation](#requirements-and-installation)
+- [Usage examples](#usage-examples)
+- [Configuration](#configuration)
+- [CI and tests](#ci-and-tests)
+- [Image details and maintenance](#image-details-and-maintenance)
+- [Security and vulnerabilities](#security-and-vulnerabilities)
+- [Contributing](#contributing)
+- [Changelog and releases](#changelog-and-releases)
+- [License and support](#license-and-support)
 
+## Overview
+
+This repository provides a maintained CLI image for teams that need AWS + Kubernetes + OpenShift tooling in one runtime.
+
+## Features
+
+- AWS CLI as default entrypoint (`aws`)
+- `kubectl` and `oc` shipped in the same image
+- GitHub Actions workflows for image test/build/publish
+- Example OpenShift CronJob (`cron.yaml`) for ECR pull-secret refresh
+
+## Requirements and installation
+
+- Docker (or another OCI-compatible container runtime)
+- AWS credentials for AWS commands (for example via mounted `~/.aws`)
+- Kubernetes/OpenShift access only when running `kubectl`/`oc` commands
+
+Use a published image:
+
+```bash
+docker pull ghcr.io/rku-it-gmbh/aws-openshift-cli:main
 ```
+
+Or build locally:
+
+```bash
+docker build -t aws-openshift-cli:test .
+```
+
+## Usage examples
+
+Run AWS CLI command:
+
+```bash
+docker run --rm -v "$HOME/.aws:/root/.aws:ro" ghcr.io/rku-it-gmbh/aws-openshift-cli:main sts get-caller-identity
+```
+
+Run Kubernetes and OpenShift clients:
+
+```bash
+docker run --rm --entrypoint kubectl ghcr.io/rku-it-gmbh/aws-openshift-cli:main version --client
+docker run --rm --entrypoint oc ghcr.io/rku-it-gmbh/aws-openshift-cli:main version
+```
+
+OpenShift CronJob example:
+
+```bash
+oc policy add-role-to-user admin system:serviceaccount:${PROJECT}:default
+oc apply -f https://raw.githubusercontent.com/rku-it-GmbH/aws-openshift-cli/main/cron.yaml
 oc create job refresh-aws-credentials --from=cronjob/aws-registry-credential-cron
 ```
+
+## Configuration
+
+- Default entrypoint: `aws`
+- Image volumes:
+  - `/root/.aws` (credentials/config)
+  - `/project` (working data)
+- CronJob config values (see `cron.yaml`):
+  - `AWS_ACCESS_KEY_ID`
+  - `AWS_SECRET_ACCESS_KEY`
+  - `AWS_ACCOUNT`
+  - `AWS_REGION`
+
+Handle secrets via your platform secret store; do not commit real credentials.
+
+## CI and tests
+
+CI is intentionally short: it builds the image, verifies `aws`, `kubectl`, and `oc`, and publishes/signs the image when checks pass. See [docker-image.yml](./.github/workflows/docker-image.yml) and [docker-publish.yml](./.github/workflows/docker-publish.yml) for full pipeline details.
+
+Run the important checks locally:
+
+```bash
+docker build -t aws-openshift-cli:test .
+docker run --rm aws-openshift-cli:test --version
+docker run --rm --entrypoint kubectl aws-openshift-cli:test version --client
+docker run --rm --entrypoint oc aws-openshift-cli:test version
+```
+
+## Image details and maintenance
+
+- Current image sources are defined in `Dockerfile`:
+  - `public.ecr.aws/aws-cli/aws-cli:2.35.5`
+  - `quay.io/openshift/origin-cli:4.18`
+- Tags are generated in CI (branch, SHA, semver tags).
+
+### Why this image was forked
+
+The original upstream image has not received updates since 2020 and recent automated scans flagged security vulnerabilities in its dependencies. Because those issues were not being addressed upstream and the image is used in our CI/builds, we created and maintain a forked image with updated dependencies and security fixes. This fork enables us to apply timely updates, fix security issues detected by our scanner, and control the image lifecycle to meet our organization’s security and compliance requirements.
+
+## Security and vulnerabilities
+
+If you find a vulnerability, please open a private security advisory in this repository (preferred). If that is not possible, open an issue with minimal sensitive detail and contact the maintainers through the repository owners.
+
+## Contributing
+
+1. Create a branch and open a PR against `main`.
+2. Run local checks from [CI and tests](#ci-and-tests) before requesting review.
+3. Keep changes focused and include usage updates in this README when behavior changes.
+
+## Changelog and releases
+
+Release history is available in [GitHub Releases](https://github.com/rku-it-GmbH/aws-openshift-cli/releases).
+
+## License and support
+
+No explicit license file is currently included in this repository. For usage questions or support, open an issue.
