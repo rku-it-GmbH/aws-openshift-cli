@@ -8,10 +8,16 @@ name: Docker
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - Dockerfile
+      - .github/workflows/**
     # Publish semver tags as releases.
     tags: [ 'v*.*.*' ]
   pull_request:
     branches: [ "main" ]
+    paths:
+      - Dockerfile
+      - .github/workflows/**
 
 env:
   # Use ghcr.io as the container registry
