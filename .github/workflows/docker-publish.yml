@@ -112,7 +112,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=aws${{ steps.image-versions.outputs.aws_version }}-openshift${{ steps.image-versions.outputs.oc_version }},enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.image-versions.outputs.aws_version != '' && steps.image-versions.outputs.oc_version != '' }}
+            type=raw,value=aws${{ steps.image-versions.outputs.aws_version }}-openshift${{ steps.image-versions.outputs.oc_version }},enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
