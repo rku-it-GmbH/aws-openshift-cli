@@ -39,7 +39,7 @@ Triggers on push to `main` and on semver tags (`v*.*.*`). Also runs (build-only,
 
 | Event | Tags applied |
 |-------|-------------|
-| Push to `main` | `ghcr.io/<owner>/aws-openshift-cli:main`, `ghcr.io/<owner>/aws-openshift-cli:sha-<short-sha>` |
+| Push to `main` | `ghcr.io/<owner>/aws-openshift-cli:main`, `ghcr.io/<owner>/aws-openshift-cli:sha-<short-sha>`, `ghcr.io/<owner>/aws-openshift-cli:aws<aws-version>-openshift<oc-version>` |
 | Tag `v1.2.3` | `ghcr.io/<owner>/aws-openshift-cli:1.2.3`, `ghcr.io/<owner>/aws-openshift-cli:1.2`, `ghcr.io/<owner>/aws-openshift-cli:1`, `ghcr.io/<owner>/aws-openshift-cli:latest` |
 | Pull request | Build only, no push |
 
