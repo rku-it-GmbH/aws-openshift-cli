@@ -1,4 +1,4 @@
-FROM alpine:3.11
+FROM alpine:3.24
 
 RUN apk --no-cache --update add python py-pip groff less mailcap \
     && pip install --upgrade awscli s3cmd python-magic \
