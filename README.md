@@ -1,88 +1,54 @@
 # aws-openshift-cli
 
-[![Docker Image CI](https://github.com/rku-it-GmbH/aws-openshift-cli/actions/workflows/docker-image.yml/badge.svg)](https://github.com/rku-it-GmbH/aws-openshift-cli/actions/workflows/docker-image.yml)
+[![Docker Image Build](https://github.com/rku-it-GmbH/aws-openshift-cli/actions/workflows/docker-image.yml/badge.svg)](https://github.com/rku-it-GmbH/aws-openshift-cli/actions/workflows/docker-image.yml)
 [![Docker Publish](https://github.com/rku-it-GmbH/aws-openshift-cli/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/rku-it-GmbH/aws-openshift-cli/actions/workflows/docker-publish.yml)
 
-Docker image combining the following tools:
+Container image with AWS CLI, kubectl, and OpenShift CLI (oc) for CI jobs and OpenShift automation.
 
-* AWS ClI
-* Kubernetes CLI (kubectl)
-* OpenShift CLI (oc)
 
-## CI/CD Workflows
 
-This repository uses two GitHub Actions workflows to build, test, and publish the Docker image.
+## Overview
 
-### docker-image.yml — Docker Image CI
+This repository provides a maintained CLI image for teams that need AWS + Kubernetes + OpenShift tooling in one runtime. The main use case for this is the automated updating of pull secrets for images in private AWS ECR registries
 
-Triggers on every push to `main` and on pull requests targeting `main`.
+## Features
 
-**Jobs:**
-- **build** – Builds the Docker image using Docker Buildx with GHA layer caching and runs the following tests against the built image:
-  - `aws --version` – verifies the AWS CLI is installed
-  - `kubectl version --client` – verifies kubectl is installed
-  - `oc version` – verifies the OpenShift CLI is installed
+- `aws`, `kubectl` and `oc` shipped in the same image
+- GitHub Actions workflows for image test/build/publish
+- Example OpenShift CronJob (`cron.yaml`) for ECR pull-secret refresh
 
-The workflow fails if the image cannot be built or if any test command exits with a non-zero status, preventing a broken image from being published.
 
-### docker-publish.yml — Docker Publish
 
-Triggers on push to `main` and on semver tags (`v*.*.*`). Also runs (build-only, no push) on pull requests.
+Handle secrets via your platform secret store; do not commit real credentials.
 
-**Jobs:**
-- **test** – Same build-and-test steps as `docker-image.yml`. The publish job does not start unless this job succeeds.
-- **build** – Builds the image with Docker Buildx, pushes it to [GitHub Container Registry (ghcr.io)](https://ghcr.io) using `GITHUB_TOKEN`, and signs the image with [cosign](https://github.com/sigstore/cosign) for supply-chain integrity. The image is **not** pushed on pull requests.
+## CI and tests
 
-#### Image tags
+The CI pipeline focuses on core validations: it builds the image, verifies `aws`, `kubectl`, and `oc`, and publishes/signs the image when checks pass. See [docker-image.yml](./.github/workflows/docker-image.yml) and [docker-publish.yml](./.github/workflows/docker-publish.yml) for full pipeline details.
 
-`docker/metadata-action` generates the following tags automatically:
+Run the important checks locally:
 
-| Event | Tags applied |
-|-------|-------------|
-| Push to `main` | `ghcr.io/<owner>/aws-openshift-cli:main`, `ghcr.io/<owner>/aws-openshift-cli:sha-<short-sha>`, `ghcr.io/<owner>/aws-openshift-cli:aws<aws-version>-openshift<oc-version>` |
-| Tag `v1.2.3` | `ghcr.io/<owner>/aws-openshift-cli:1.2.3`, `ghcr.io/<owner>/aws-openshift-cli:1.2`, `ghcr.io/<owner>/aws-openshift-cli:1`, `ghcr.io/<owner>/aws-openshift-cli:latest` |
-| Pull request | Build only, no push |
-
-#### Required secrets
-
-| Secret | Description |
-|--------|-------------|
-| `GITHUB_TOKEN` | Automatically provided by GitHub Actions. Used to authenticate with `ghcr.io` and to sign the image with cosign. No manual configuration required. |
-
-#### Required repository permissions
-
-The workflows use `permissions: packages: write` to push packages to GHCR. This is granted automatically via `GITHUB_TOKEN` as long as Actions are enabled for the repository.
-
-#### Making the GHCR package public
-
-By default, packages published to GHCR inherit the repository visibility (private for private repos). To make the published image public:
-
-1. Navigate to the package page: `https://github.com/orgs/<owner>/packages` or `https://github.com/<owner>?tab=packages`.
-2. Click the published package (`aws-openshift-cli`).
-3. Click **Package settings** (bottom-right).
-4. Under **Danger Zone**, click **Change visibility** → select **Public** → confirm.
-
-Alternatively, set the default package visibility to public in the organisation settings under **Packages** → **Default package visibility**.
-
-## Usage within OpenShift
-
-On OpenShift we deploy a [CronJob](https://docs.openshift.com/container-platform/3.11/dev_guide/cron_jobs.html) that will be responsible for renewing the credentials stored within a secret.
-
-```
-# Grant privalliages to allow creation of secrets, admin is overpowered still researching
-oc policy add-role-to-user admin system:serviceaccount:{$PROJECT}:default
-
-# From GitHub
-oc create -f https://raw.githubusercontent.com/bk203/aws-openshift-cli/master/cron.yaml
-
-# From file
-oc create -f cron.yaml
+```bash
+docker build -t aws-openshift-cli:test .
+docker run --rm aws-openshift-cli:test --version
+docker run --rm --entrypoint kubectl aws-openshift-cli:test version --client
+docker run --rm --entrypoint oc aws-openshift-cli:test version
 ```
 
-Next update the created ConfigMap containing your AWS credentials, and your done.
+## Image details and maintenance
 
-The CronJob will run every [“At every minute past every 8th hour.”](https://crontab.guru/#*_*/8_*_*_*), to manually start the job you can run:
+- Current image sources are defined in `Dockerfile`:
+  - `public.ecr.aws/aws-cli/aws-cli:x.xx.x`
+  - `quay.io/openshift/origin-cli:x.xx`
+- Tags are generated in CI (branch, SHA, semver tags).
 
-```
-oc create job refresh-aws-credentials --from=cronjob/aws-registry-credential-cron
-```
+### Why this image was forked
+
+The original upstream image ([bk203/aws-openshift-cli](https://github.com/bk203/aws-openshift-cli)) has not received updates since 2020, and recent automated scans flagged security vulnerabilities in its dependencies. Because those issues were not being addressed upstream, and the image is used in our CI/builds, we created and maintain a forked image with updated dependencies and security fixes. This fork enables timely updates, faster remediation of scanner findings, and lifecycle control for our security and compliance requirements.
+
+
+## Contributing
+
+1. Create a branch and open a PR against `main`.
+2. Run local checks from [CI and tests](#ci-and-tests) before requesting review.
+3. Keep changes focused and include usage updates in this README when behavior changes.
+
