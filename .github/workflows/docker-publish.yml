@@ -93,8 +93,18 @@ jobs:
         id: image-versions
         run: |
           set -euo pipefail
-          aws_version=$(grep -m1 '^FROM .*aws-cli/aws-cli:' Dockerfile | sed -E 's#^FROM [^:]+:([^[:space:]]+).*$#\1#')
-          oc_version=$(grep -m1 '^FROM .*openshift/origin-cli:' Dockerfile | sed -E 's#^FROM [^:]+:([^[:space:]]+).*$#\1#')
+          aws_from=$(grep -m1 '^FROM .*aws-cli/aws-cli:' Dockerfile || true)
+          oc_from=$(grep -m1 '^FROM .*openshift/origin-cli:' Dockerfile || true)
+          if [ -z "${aws_from}" ]; then
+            echo "Could not find AWS CLI base image in Dockerfile." >&2
+            exit 1
+          fi
+          if [ -z "${oc_from}" ]; then
+            echo "Could not find OpenShift CLI base image in Dockerfile." >&2
+            exit 1
+          fi
+          aws_version=$(echo "${aws_from}" | sed -E 's#^FROM [^:]+:([^[:space:]]+).*$#\1#')
+          oc_version=$(echo "${oc_from}" | sed -E 's#^FROM [^:]+:([^[:space:]]+).*$#\1#')
           test -n "${aws_version}"
           test -n "${oc_version}"
           echo "aws_version=${aws_version}" >> "$GITHUB_OUTPUT"
