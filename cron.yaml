@@ -1,49 +1,82 @@
-apiVersion: batch/v1beta1
 kind: CronJob
+apiVersion: batch/v1
 metadata:
-  name: aws-registry-credential-cron
+  name: ecr-cred-helper
 spec:
-  schedule: "* */8 * * *"
+  schedule: "0 */8 * * *"
+  concurrencyPolicy: Allow
+  suspend: false
   successfulJobsHistoryLimit: 2
   failedJobsHistoryLimit: 2
   jobTemplate:
+    metadata:
+      creationTimestamp: null
     spec:
       backoffLimit: 4
       template:
+        metadata:
+          creationTimestamp: null
         spec:
-          serviceAccountName: default
+          serviceAccountName: aws-refresh-helper
           terminationGracePeriodSeconds: 0
           restartPolicy: Never
+          dnsPolicy: ClusterFirst
+          schedulerName: default-scheduler
+          securityContext: {}
           containers:
             - name: refresh-aws-credentials
               imagePullPolicy: IfNotPresent
-              image: bk203/aws-openshift-cli:latest
+              image: 'ghcr.io/rku-it-gmbh/aws-openshift-cli:latest'
               envFrom:
-                - configMapRef:
-                    name: aws-refresh-credentials
+                - secretRef:
+                    name: aws-ecr-secret
               command:
-                - "/bin/sh"
-                - "-c"
+                - /bin/sh
+                - '-c'
                 - |
+                  OC_SECRET_NAME=image-pull-secret
                   DOCKER_REGISTRY_SERVER=https://${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com
                   DOCKER_USER=AWS
-                  DOCKER_PASSWORD=`aws ecr get-login --region ${AWS_REGION} --registry-ids ${AWS_ACCOUNT} | cut -d' ' -f6`
-                  oc delete secret aws-registry || true
-                  oc create secret docker-registry aws-registry \
-                  --docker-server=$DOCKER_REGISTRY_SERVER \
-                  --docker-username=$DOCKER_USER \
-                  --docker-password=$DOCKER_PASSWORD \
-                  --docker-email=no@email.local
-                  oc patch serviceaccount default -p '{"imagePullSecrets":[{"name":"aws-registry"}]}'
+                  DOCKER_PASSWORD=$(aws ecr get-login-password --region ${AWS_REGION})
+                  oc delete secret ${OC_SECRET_NAME} || true
+                  oc create secret docker-registry ${OC_SECRET_NAME} \
+                    --docker-server=$DOCKER_REGISTRY_SERVER \
+                    --docker-username=$DOCKER_USER \
+                    --docker-password=$DOCKER_PASSWORD
+              resources:
+                limits:
+                  cpu: 500m
+                  memory: 500Mi
+                requests:
+                  cpu: 250m
+                  memory: 250Mi
+              terminationMessagePath: /dev/termination-log
+              terminationMessagePolicy: File
 ---
-
+kind: ServiceAccount
 apiVersion: v1
-data:
-  AWS_ACCESS_KEY_ID: 'YOUR_AWS_ID'
-  AWS_SECRET_ACCESS_KEY: 'YOUR_AWS_SECRET'
-  AWS_ACCOUNT: 'YOUR_AWS_ACCOUNT'
-  AWS_REGION: eu-central-1
-
-kind: ConfigMap
 metadata:
-  name: aws-refresh-credentials
+  name: aws-refresh-helper
+---
+kind: Secret
+apiVersion: v1
+metadata:
+  name: aws-ecr-secret
+stringData:
+  AWS_ACCESS_KEY_ID: YOUR_AWS_ACCESS_KEY_ID
+  AWS_SECRET_ACCESS_KEY: YOUR_AWS_SECRET_ACCESS_KEY
+  AWS_ACCOUNT: YOUR_AWS_ACCOUNT_ID
+  AWS_REGION: YOUR_AWS_REGION
+type: Opaque
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: aws-refresh-helper-binding
+subjects:
+  - kind: ServiceAccount
+    name: aws-refresh-helper
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: admin

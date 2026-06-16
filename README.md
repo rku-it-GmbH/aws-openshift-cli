@@ -17,9 +17,29 @@ This repository provides a maintained CLI image for teams that need AWS + Kubern
 - GitHub Actions workflows for image test/build/publish
 - Example OpenShift CronJob (`cron.yaml`) for ECR pull-secret refresh
 
+## Usage
 
+`cron.yaml` provides ready-to-use OpenShift manifests that automatically refresh ECR pull secrets. It contains four resources:
 
-Handle secrets via your platform secret store; do not commit real credentials.
+| Resource | Name | Purpose |
+|---|---|---|
+| `CronJob` | `ecr-cred-helper` | Runs every 8 hours to refresh the ECR pull secret |
+| `ServiceAccount` | `aws-refresh-helper` | Dedicated service account for the job |
+| `Secret` | `aws-ecr-secret` | AWS credentials for ECR authentication |
+| `RoleBinding` | `aws-refresh-helper-binding` | Grants the service account `admin` cluster role |
+
+### Setup
+
+1. Edit `cron.yaml` and replace the placeholder values:
+   - In the `CronJob` command: set `OC_SECRET_NAME` to the pull secret name used by your deployments
+   - In the `Secret`: set `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ACCOUNT`, and `AWS_REGION` to your values (plain text — `stringData` handles encoding automatically)
+
+2. Apply the manifests to your OpenShift namespace:
+   ```bash
+   oc apply -f cron.yaml
+   ```
+
+> **Note:** Handle secrets via your platform secret store; do not commit real credentials.
 
 ## CI and tests
 
