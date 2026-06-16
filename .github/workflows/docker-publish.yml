@@ -10,14 +10,14 @@ on:
     branches: [ "main" ]
     paths:
       - Dockerfile
-      - .github/workflows/**
+      - .github/workflows/docker-publish.yml
     # Publish semver tags as releases.
     tags: [ 'v*.*.*' ]
   pull_request:
     branches: [ "main" ]
     paths:
       - Dockerfile
-      - .github/workflows/**
+      - .github/workflows/docker-publish.yml
 
 env:
   # Use ghcr.io as the container registry
