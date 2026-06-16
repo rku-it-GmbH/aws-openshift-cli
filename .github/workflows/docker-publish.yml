@@ -89,11 +89,40 @@ jobs:
 
       # Extract metadata (tags, labels) for Docker
       # https://github.com/docker/metadata-action
+      - name: Extract image versions
+        id: image-versions
+        run: |
+          set -euo pipefail
+          aws_from=$(grep -m1 '^FROM .*aws-cli/aws-cli:' Dockerfile || true)
+          oc_from=$(grep -m1 '^FROM .*openshift/origin-cli:' Dockerfile || true)
+          if [ -z "${aws_from}" ]; then
+            echo "Could not find AWS CLI base image in Dockerfile." >&2
+            exit 1
+          fi
+          if [ -z "${oc_from}" ]; then
+            echo "Could not find OpenShift CLI base image in Dockerfile." >&2
+            exit 1
+          fi
+          aws_version=$(echo "${aws_from}" | sed -E 's#^FROM [^:]+:([^[:space:]]+).*$#\1#')
+          oc_version=$(echo "${oc_from}" | sed -E 's#^FROM [^:]+:([^[:space:]]+).*$#\1#')
+          test -n "${aws_version}" || { echo "Failed to extract AWS CLI version from Dockerfile." >&2; exit 1; }
+          test -n "${oc_version}" || { echo "Failed to extract OpenShift CLI version from Dockerfile." >&2; exit 1; }
+          echo "aws_version=${aws_version}" >> "$GITHUB_OUTPUT"
+          echo "oc_version=${oc_version}" >> "$GITHUB_OUTPUT"
+
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934 # v5.0.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=aws${{ steps.image-versions.outputs.aws_version }}-openshift${{ steps.image-versions.outputs.oc_version }},enable={{is_default_branch}}
 
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
