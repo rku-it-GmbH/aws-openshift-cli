@@ -89,11 +89,28 @@ jobs:
 
       # Extract metadata (tags, labels) for Docker
       # https://github.com/docker/metadata-action
+      - name: Extract image versions
+        id: image-versions
+        run: |
+          set -euo pipefail
+          aws_version=$(grep -m1 '^FROM public.ecr.aws/aws-cli/aws-cli:' Dockerfile | sed -E 's#^FROM [^:]+:([^[:space:]]+).*$#\1#')
+          oc_version=$(grep -m1 '^FROM quay.io/openshift/origin-cli:' Dockerfile | sed -E 's#^FROM [^:]+:([^[:space:]]+).*$#\1#')
+          echo "aws_version=${aws_version}" >> "$GITHUB_OUTPUT"
+          echo "oc_version=${oc_version}" >> "$GITHUB_OUTPUT"
+
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934 # v5.0.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=aws${{ steps.image-versions.outputs.aws_version }}-openshift${{ steps.image-versions.outputs.oc_version }},enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
