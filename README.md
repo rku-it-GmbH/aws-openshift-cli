@@ -74,7 +74,8 @@ docker run --rm --entrypoint oc ghcr.io/rku-it-gmbh/aws-openshift-cli:main versi
 OpenShift CronJob example:
 
 ```bash
-oc policy add-role-to-user admin system:serviceaccount:${PROJECT}:default
+# Use least privilege. "edit" is often enough; use a custom role if possible.
+oc policy add-role-to-user edit system:serviceaccount:${PROJECT}:default
 oc apply -f https://raw.githubusercontent.com/rku-it-GmbH/aws-openshift-cli/main/cron.yaml
 oc create job refresh-aws-credentials --from=cronjob/aws-registry-credential-cron
 ```
@@ -115,7 +116,7 @@ docker run --rm --entrypoint oc aws-openshift-cli:test version
 
 ### Why this image was forked
 
-The original upstream image has not received updates since 2020 and recent automated scans flagged security vulnerabilities in its dependencies. Because those issues were not being addressed upstream and the image is used in our CI/builds, we created and maintain a forked image with updated dependencies and security fixes. This fork enables us to apply timely updates, fix security issues detected by our scanner, and control the image lifecycle to meet our organization’s security and compliance requirements.
+The original upstream image ([bk203/aws-openshift-cli](https://github.com/bk203/aws-openshift-cli)) has not received updates since 2020 and recent automated scans flagged security vulnerabilities in its dependencies. Because those issues were not being addressed upstream and the image is used in our CI/builds, we created and maintain a forked image with updated dependencies and security fixes. This fork enables us to apply timely updates, fix security issues detected by our scanner, and control the image lifecycle to meet our organization’s security and compliance requirements.
 
 ## Security and vulnerabilities
 
