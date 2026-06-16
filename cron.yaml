@@ -18,7 +18,6 @@ spec:
           creationTimestamp: null
         spec:
           serviceAccountName: aws-refresh-helper
-          serviceAccount: aws-refresh-helper
           terminationGracePeriodSeconds: 0
           restartPolicy: Never
           dnsPolicy: ClusterFirst
@@ -36,17 +35,14 @@ spec:
                 - '-c'
                 - |
                   OC_SECRET_NAME=image-pull-secret
-                  AWS_ACCOUNT=YOUR_AWS_ACCOUNT
-                  AWS_REGION=YOUR_AWS_REGION
                   DOCKER_REGISTRY_SERVER=https://${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com
                   DOCKER_USER=AWS
-                  DOCKER_PASSWORD=`aws ecr get-login --region ${AWS_REGION} --registry-ids ${AWS_ACCOUNT} | cut -d' ' -f6`
+                  DOCKER_PASSWORD=$(aws ecr get-login-password --region ${AWS_REGION})
                   oc delete secret ${OC_SECRET_NAME} || true
                   oc create secret docker-registry ${OC_SECRET_NAME} \
                     --docker-server=$DOCKER_REGISTRY_SERVER \
                     --docker-username=$DOCKER_USER \
-                    --docker-password=$DOCKER_PASSWORD \
-                    --docker-email=no@email.local
+                    --docker-password=$DOCKER_PASSWORD
               resources:
                 limits:
                   cpu: 500m
@@ -66,9 +62,11 @@ kind: Secret
 apiVersion: v1
 metadata:
   name: aws-ecr-secret
-data:
-  AWS_ACCESS_KEY_ID: YOUR_BASE64_ENCODED_AWS_ACCESS_KEY_ID
-  AWS_SECRET_ACCESS_KEY: YOUR_BASE64_ENCODED_AWS_SECRET_ACCESS_KEY
+stringData:
+  AWS_ACCESS_KEY_ID: YOUR_AWS_ACCESS_KEY_ID
+  AWS_SECRET_ACCESS_KEY: YOUR_AWS_SECRET_ACCESS_KEY
+  AWS_ACCOUNT: YOUR_AWS_ACCOUNT_ID
+  AWS_REGION: YOUR_AWS_REGION
 type: Opaque
 ---
 kind: RoleBinding

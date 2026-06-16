@@ -31,13 +31,8 @@ This repository provides a maintained CLI image for teams that need AWS + Kubern
 ### Setup
 
 1. Edit `cron.yaml` and replace the placeholder values:
-   - In the `CronJob` command: set `AWS_ACCOUNT` and `AWS_REGION` to your values
    - In the `CronJob` command: set `OC_SECRET_NAME` to the pull secret name used by your deployments
-   - In the `Secret`: set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` to the base64-encoded values of your AWS credentials
-     ```bash
-     echo -n 'YOUR_ACCESS_KEY_ID' | base64
-     echo -n 'YOUR_SECRET_ACCESS_KEY' | base64
-     ```
+   - In the `Secret`: set `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ACCOUNT`, and `AWS_REGION` to your values (plain text — `stringData` handles encoding automatically)
 
 2. Apply the manifests to your OpenShift namespace:
    ```bash
