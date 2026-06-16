@@ -9,6 +9,7 @@ Container image with AWS CLI, kubectl, and OpenShift CLI (oc) for CI jobs and Op
 
 ```bash
 docker pull ghcr.io/rku-it-gmbh/aws-openshift-cli:main
+# Shows AWS CLI version (default entrypoint is `aws`)
 docker run --rm ghcr.io/rku-it-gmbh/aws-openshift-cli:main --version
 docker run --rm --entrypoint kubectl ghcr.io/rku-it-gmbh/aws-openshift-cli:main version --client
 ```
@@ -74,6 +75,7 @@ docker run --rm --entrypoint oc ghcr.io/rku-it-gmbh/aws-openshift-cli:main versi
 OpenShift CronJob example:
 
 ```bash
+PROJECT=my-namespace
 # Use least privilege. "edit" is often enough; use a custom role if possible.
 oc policy add-role-to-user edit system:serviceaccount:${PROJECT}:default
 oc apply -f https://raw.githubusercontent.com/rku-it-GmbH/aws-openshift-cli/main/cron.yaml
@@ -96,7 +98,7 @@ Handle secrets via your platform secret store; do not commit real credentials.
 
 ## CI and tests
 
-CI is intentionally short: it builds the image, verifies `aws`, `kubectl`, and `oc`, and publishes/signs the image when checks pass. See [docker-image.yml](./.github/workflows/docker-image.yml) and [docker-publish.yml](./.github/workflows/docker-publish.yml) for full pipeline details.
+The CI pipeline focuses on core validations: it builds the image, verifies `aws`, `kubectl`, and `oc`, and publishes/signs the image when checks pass. See [docker-image.yml](./.github/workflows/docker-image.yml) and [docker-publish.yml](./.github/workflows/docker-publish.yml) for full pipeline details.
 
 Run the important checks locally:
 
@@ -116,7 +118,7 @@ docker run --rm --entrypoint oc aws-openshift-cli:test version
 
 ### Why this image was forked
 
-The original upstream image ([bk203/aws-openshift-cli](https://github.com/bk203/aws-openshift-cli)) has not received updates since 2020 and recent automated scans flagged security vulnerabilities in its dependencies. Because those issues were not being addressed upstream and the image is used in our CI/builds, we created and maintain a forked image with updated dependencies and security fixes. This fork enables us to apply timely updates, fix security issues detected by our scanner, and control the image lifecycle to meet our organization’s security and compliance requirements.
+The original upstream image ([bk203/aws-openshift-cli](https://github.com/bk203/aws-openshift-cli)) has not received updates since 2020, and recent automated scans flagged security vulnerabilities in its dependencies. Because those issues were not being addressed upstream, and the image is used in our CI/builds, we created and maintain a forked image with updated dependencies and security fixes. This fork enables timely updates, faster remediation of scanner findings, and lifecycle control for our security and compliance requirements.
 
 ## Security and vulnerabilities
 
