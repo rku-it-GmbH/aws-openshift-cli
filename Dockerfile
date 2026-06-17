@@ -1,4 +1,4 @@
-FROM quay.io/openshift/origin-cli:4.18 AS openshift_cli
+FROM quay.io/openshift/origin-cli:4.22 AS openshift_cli
 
 FROM public.ecr.aws/aws-cli/aws-cli:2.35.5
 
