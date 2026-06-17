@@ -13,9 +13,6 @@ on:
       - .github/workflows/docker-publish.yml
   pull_request:
     branches: [ "main" ]
-    paths:
-      - Dockerfile
-      - .github/workflows/docker-publish.yml
 
 env:
   # Use ghcr.io as the container registry
