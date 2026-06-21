@@ -1,19 +1,31 @@
 name: dependabot-auto-merge
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, reopened, synchronize]
 
+# Minimal permissions for the GITHUB_TOKEN; the actual merge uses AUTOMERGE_TOKEN.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   enable-auto-merge:
     runs-on: ubuntu-latest
-    if: github.actor == 'dependabot[bot]'
+    # Security guards:
+    #   1. Only run for the official Dependabot bot account.
+    #   2. Only run for PRs whose head branch comes from this repository (never from forks),
+    #      so that a forked PR cannot trigger the privileged AUTOMERGE_TOKEN.
+    if: |
+      github.actor == 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Enable auto-merge
+        # AUTOMERGE_TOKEN must be a Fine-grained PAT or GitHub App installation token
+        # with the following repository permissions:
+        #   - Contents:       Write  (merge commits)
+        #   - Pull requests:  Write  (enable auto-merge)
+        #   - Workflows:      Write  (required when the PR modifies .github/workflows/**)
+        # Store it as a repository secret named AUTOMERGE_TOKEN.
         run: gh pr merge --repo "${{ github.repository }}" --auto --squash "${{ github.event.pull_request.number }}"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.AUTOMERGE_TOKEN }}

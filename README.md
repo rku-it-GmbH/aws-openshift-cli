@@ -66,6 +66,26 @@ docker run --rm --entrypoint oc aws-openshift-cli:test version
 The original upstream image ([bk203/aws-openshift-cli](https://github.com/bk203/aws-openshift-cli)) has not received updates since 2020, and recent automated scans flagged security vulnerabilities in its dependencies. Because those issues were not being addressed upstream, and the image is used in our CI/builds, we created and maintain a forked image with updated dependencies and security fixes. This fork enables timely updates, faster remediation of scanner findings, and lifecycle control for our security and compliance requirements.
 
 
+## Dependabot auto-merge
+
+Dependabot PRs (including updates to `.github/workflows/**`) are merged automatically via [dependabot-auto-merge.yml](./.github/workflows/dependabot-auto-merge.yml).
+
+The workflow requires a repository secret named **`AUTOMERGE_TOKEN`** with sufficient permissions to merge workflow-file changes. `GITHUB_TOKEN` cannot be used here because it lacks `workflows` write permission.
+
+### Required token permissions
+
+Create a **Fine-grained Personal Access Token** (or GitHub App installation token) for the repository with:
+
+| Permission | Access |
+|---|---|
+| Contents | Write |
+| Pull requests | Write |
+| Workflows | Write |
+
+Store it under **Settings → Secrets and variables → Actions** as `AUTOMERGE_TOKEN`.
+
+> **Security note:** The workflow uses the `pull_request_target` event and only runs when the PR author is `dependabot[bot]` **and** the head branch originates from this repository. This prevents untrusted fork PRs from accessing the privileged token.
+
 ## Contributing
 
 1. Create a branch and open a PR against `main`.
